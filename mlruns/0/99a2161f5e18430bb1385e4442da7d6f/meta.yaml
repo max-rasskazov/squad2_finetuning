@@ -1,0 +1,15 @@
+artifact_uri: file:///content/gdrive/MyDrive/colab/anadea_test/mlruns/0/99a2161f5e18430bb1385e4442da7d6f/artifacts
+end_time: 1675854384824
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 99a2161f5e18430bb1385e4442da7d6f
+run_name: dazzling-carp-540
+run_uuid: 99a2161f5e18430bb1385e4442da7d6f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1675854384548
+status: 3
+tags: []
+user_id: root
