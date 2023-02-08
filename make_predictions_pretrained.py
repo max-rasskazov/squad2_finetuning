@@ -4,11 +4,18 @@ import os
 from pathlib import Path
 from typing import Optional
 
-import torch
 import datasets
+import torch
 import transformers.pipelines.base
-from datasets import load_dataset, load_from_disk
-from transformers import pipeline
+from datasets import (
+    load_dataset,
+    load_from_disk,
+)
+from transformers import (
+    AutoModelForQuestionAnswering,
+    AutoTokenizer,
+    pipeline,
+)
 
 
 def get_predictions_with_pipeline(
@@ -37,8 +44,10 @@ def get_predictions_with_pipeline(
 
 
 def get_predictions_pretrained(
-        model_name: str,
         dataset: datasets.arrow_dataset.Dataset,
+        model: transformers.PreTrainedModel,
+        tokenizer: transformers.PreTrainedTokenizer,
+        model_path: Optional[str] = None,
         batch_size: int = 8,
         device: Optional[torch.device] = None,
         no_answer_threshold: Optional[float] = None
@@ -46,8 +55,8 @@ def get_predictions_pretrained(
     if device is None:
         device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     qa_pipe = pipeline('question-answering',
-                       model=model_name,
-                       tokenizer=model_name,
+                       model=model,
+                       tokenizer=tokenizer,
                        device=device)
     return get_predictions_with_pipeline(
         pipe=qa_pipe,
@@ -59,12 +68,14 @@ def get_predictions_pretrained(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', type=str, required=True)
+    parser.add_argument('--model_name', type=str)
+    parser.add_argument('--model_path', type=str)
     parser.add_argument('--data_path', type=str)
     parser.add_argument('--no_answer_threshold', type=float)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--pred_path', type=str, default='pred.json')
     parser.add_argument('--na_prob_path', type=str, default='na_prob.json')
+    parser.add_argument('--model_size_path', type=str, default='model_size.json')
 
     parameters = parser.parse_args()
     if parameters.data_path is not None:
@@ -72,9 +83,25 @@ def main():
     else:
         dataset = load_dataset('squad_v2')['validation']
 
+    assert parameters.model_name is not None or parameters.model_path is not None
+    model = AutoModelForQuestionAnswering.from_pretrained(parameters.model_name or parameters.model_path)
+    tokenizer = AutoTokenizer.from_pretrained(parameters.model_name or parameters.model_path)
+    if parameters.model_size_path is not None:
+        model_size = dict(
+            n_params=model.num_parameters(),
+            n_params_wo_embeddings=(
+                model.num_parameters()
+                - sum(p.nelement()
+                      for p in model.base_model.embeddings.parameters())),
+        )
+        os.makedirs(Path(parameters.model_size_path).parent.resolve(), exist_ok=True)
+        with open(parameters.model_size_path, 'w') as f:
+            json.dump(model_size, f)
+
     predictions, na_probs = get_predictions_pretrained(
-        model_name=parameters.model_name,
         dataset=dataset,
+        model=model,
+        tokenizer=tokenizer,
         batch_size=parameters.batch_size,
         no_answer_threshold=parameters.no_answer_threshold,
     )
