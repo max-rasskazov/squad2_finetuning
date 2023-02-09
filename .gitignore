@@ -135,3 +135,5 @@ dmypy.json
 dev-v2.0.json
 train-v2.0.json
 models/
+/finetuned/model/
+/finetuned/checkpoints/
